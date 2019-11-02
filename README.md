@@ -1,4 +1,4 @@
-# flex_calendar
+# flex calendar
 
 A customizable calendar.
 

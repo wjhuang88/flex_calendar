@@ -9,6 +9,7 @@ import 'type_define.dart';
 class FlexCalendarState extends State<FlexCalendar> {
 
   DateTime _selectedDate;
+  DateTime get selectedDate => _selectedDate;
   CalenderTitleBuilder _titleBuilder;
   CalenderHeadTileBuilder _headBuilder;
   CalenderBoxBuilder _tileBuilder;
@@ -28,20 +29,9 @@ class FlexCalendarState extends State<FlexCalendar> {
   @override
   void initState() {
     super.initState();
-    _controller = widget.controller ?? FlexCalendarController();
-    _controller.state = this;
 
-    final pageDuration = Duration(milliseconds: 500);
+    final pageDuration = Duration(milliseconds: 1000);
     final pageCurve = Cubic(0,1,.55,1);
-
-    _controller.goLastMonth = () => _pageController.previousPage(
-        duration: pageDuration, curve: pageCurve);
-    _controller.goNextMonth = () => _pageController.nextPage(
-        duration: pageDuration, curve: pageCurve);
-    _controller.goTo = (year, month) {
-      final offset = (year - _initYear) * 12 + month - _initMonth;
-      _pageController.animateToPage(offset + pageHugeOffset, duration: pageDuration, curve: pageCurve);
-    };
 
     _pageController = PageController(initialPage: pageHugeOffset);
     _pageController.addListener(() {
@@ -62,7 +52,27 @@ class FlexCalendarState extends State<FlexCalendar> {
             : animOffset;
       }
     });
-    _selectedDate = widget.initDate ?? DateTime.now();
+    _selectedDate = widget.initDate ?? widget.controller?.value ?? DateTime.now();
+
+    _controller = widget.controller ?? FlexCalendarController.of(_selectedDate);
+    _controller.state = this;
+
+    _controller.goLastMonth = () => _pageController.previousPage(
+        duration: pageDuration, curve: pageCurve);
+    _controller.goNextMonth = () => _pageController.nextPage(
+        duration: pageDuration, curve: pageCurve);
+    _controller.goTo = (year, month) {
+      final offset = (year - _initYear) * 12 + month - _initMonth;
+      _pageController.animateToPage(offset + pageHugeOffset, duration: pageDuration, curve: pageCurve);
+    };
+    _controller.select = (date) {
+      _controller.goTo(date.year, date.month);
+      setState(() {
+        _selectedDate = date;
+      });
+      // 触发回调事件
+      _controller.value = _selectedDate;
+    };
 
     _initYear = _selectedDate.year;
     _initMonth = _selectedDate.month;
@@ -83,15 +93,12 @@ class FlexCalendarState extends State<FlexCalendar> {
       );
     };
     _headBuilder = widget.headBuilder ?? (context, week, state, _) {
-      final boxWidth = MediaQuery.of(context).size.width / DateTime.daysPerWeek;
       return Container(
-        height: boxWidth ?? 40.0,
         alignment: Alignment.center,
         child: Text(week, style: const TextStyle(color: Color(0xff000000)),),
       );
     };
     _tileBuilder = widget.tileBuilder ?? (context, date, state, animValue) {
-      final boxWidth = MediaQuery.of(context).size.width / DateTime.daysPerWeek;
       var color, bgColor;
       switch(state) {
         case TileState.selected:
@@ -107,14 +114,13 @@ class FlexCalendarState extends State<FlexCalendar> {
           bgColor = const Color(0xffffffff);
       }
       return Container(
-        height: boxWidth ?? 40.0,
         alignment: Alignment.center,
-        padding: const EdgeInsets.all(6.0),
+        padding: const EdgeInsets.all(8.0),
         child: Container(
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: bgColor,
-            borderRadius: const BorderRadius.all(Radius.circular(10.0)),
+            borderRadius: const BorderRadius.all(Radius.circular(8.0)),
           ),
           child: Text(date.day.toString(), style: TextStyle(color: color),),
         ),
@@ -129,6 +135,7 @@ class FlexCalendarState extends State<FlexCalendar> {
   @override
   void dispose() {
     _pageController.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
@@ -144,11 +151,15 @@ class FlexCalendarState extends State<FlexCalendar> {
             key: const ValueKey('flex_calendar_title_box'),
             child: _titleBuilder(context, _selectedDate, _pageDate, _animValue),
           ),
-          Container(
-            key: const ValueKey('flex_calendar_head_line_box'),
-            child: _buildHeadRow(widget.weekLabels),
+          Expanded(
+            flex: 1,
+            child: Container(
+              key: const ValueKey('flex_calendar_head_line_box'),
+              child: _buildHeadRow(widget.weekLabels),
+            ),
           ),
           Expanded(
+            flex: 6,
             child: PageView.builder(
               key: const ValueKey('flex_calendar_page_view'),
               itemBuilder: (context, position) {
@@ -195,14 +206,20 @@ class FlexCalendarState extends State<FlexCalendar> {
     for (var i = 0; i < DateTime.saturday; i++) {
       list.add(_headBuilder(context, labels[i], _selectedDate.weekday == i + 1 ? TileState.selected : TileState.active, _animValue));
     }
-    return _buildRow(list);
+    assert(list.length == DateTime.daysPerWeek);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      children: list.map((item) => Expanded(child: item,)).toList(),
+    );
   }
 
   Widget _buildRow(List<Widget> items) {
     assert(items.length == DateTime.daysPerWeek);
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: items.map((item) => Expanded(child: item,)).toList(),
+    return Expanded(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: items.map((item) => Expanded(child: item,)).toList(),
+      ),
     );
   }
 
@@ -224,7 +241,16 @@ class FlexCalendarState extends State<FlexCalendar> {
       final state = (floatDate.year == _selectedDate.year
           && floatDate.month == _selectedDate.month
           && floatDate.day == _selectedDate.day) ? TileState.selected : TileState.active;
-      final tile = _tileBuilder(context, floatDate, state, animValue);
+      final tappedDate = floatDate;
+      final tile = GestureDetector(
+        child: _tileBuilder(context, floatDate, state, animValue),
+        onTap: () {
+          setState(() {
+            _selectedDate = tappedDate;
+          });
+          _controller.value = _selectedDate;
+        },
+      );
       blockList.add(tile);
       floatDate = floatDate.add(Duration(days: 1));
     }

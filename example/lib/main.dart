@@ -38,6 +38,17 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
 
   FlexCalendarController calendarController = FlexCalendarController();
+  DateTime _date = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    calendarController.addSelectListener((date) {
+      setState(() {
+        _date = date;
+      });
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,9 +63,10 @@ class _MyHomePageState extends State<MyHomePage> {
         children: <Widget>[
           Container(
             color: Colors.white,
-            height: 450.0,
             child: FlexCalendar(
+              height: 400.0,
               controller: calendarController,
+              initDate: _date,
             ),
           ),
           Row(
@@ -73,7 +85,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 onPressed: calendarController.goNextMonth,
               ),
               FlatButton(
-                child: Text('今天'),
+                child: Text('本月'),
                 color: Colors.blue,
                 textColor: Colors.white,
                 onPressed: () => calendarController.goTo(DateTime.now().year, DateTime.now().month),
@@ -84,19 +96,34 @@ class _MyHomePageState extends State<MyHomePage> {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: <Widget>[
               FlatButton(
-                child: Text('关闭'),
+                child: Text('今天'),
                 color: Colors.blue,
                 textColor: Colors.white,
-                onPressed: () {},
+                onPressed: () => calendarController.select(DateTime.now()),
               ),
               FlatButton(
-                child: Text('展开'),
+                child: Text('已选'),
+                color: Colors.blue,
+                textColor: Colors.white,
+                onPressed: () => calendarController.goTo(_date.year, _date.month),
+              ),
+              FlatButton(
+                child: Text('切换'),
                 color: Colors.blue,
                 textColor: Colors.white,
                 onPressed: () {},
               ),
             ],
-          )
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: <Widget>[
+              Padding(
+                padding: const EdgeInsets.only(left: 15.0, top: 15.0),
+                child: Text('选择的日期: ${_date.year}年${_date.month}月${_date.day}日'),
+              ),
+            ],
+          ),
         ],
       ),
     );
